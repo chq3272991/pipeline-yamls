@@ -68,12 +68,13 @@ spec:
             EOF
             cat update-image.sh
             chmod +x update-image.sh
-            ./update-image.sh  \$SYNC_IMAGE
+            ./update-image.sh  $SYNC_IMAGE
             cat $TARGET_FILE | grep image
             cd $REPO_DIR
             git add .
             git commit -m "updated image to $SYNC_IMAGE"
             git push origin $DEFAULT_BRANCH
+            
       pipelineRef:
         name: maven-test-pipeline
       podTemplate:
