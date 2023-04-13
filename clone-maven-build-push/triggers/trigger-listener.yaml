@@ -1,0 +1,14 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: EventListener
+metadata:
+  name: maven-trigger-listener
+spec:
+  serviceAccountName: tekton-robot
+  triggers:
+    - name: maven-trigger 
+      bindings:
+      - ref: maven-trigger-binding
+      template:
+        ref: maven-test-pipeline-run-template
+
+# 这声明当检测到事件时，它将运行TriggerBinding和TriggerTemplate。

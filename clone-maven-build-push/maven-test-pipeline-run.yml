@@ -1,0 +1,69 @@
+apiVersion: tekton.dev/v1beta1
+kind: PipelineRun
+metadata:
+  generateName: maven-test-pipeline-run-
+spec:
+  pipelineRef:
+    name: maven-test-pipeline
+  podTemplate:
+    securityContext:
+      fsGroup: 65532
+  workspaces:
+    - name: shared-workspace
+      volumeClaimTemplate:
+        spec:
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 1Gi
+    - name: docker-credentials
+      secret:
+        secretName: docker-credentials
+    - name: maven-settings
+      emptyDir: {}
+    - name: ssh-directory
+      secret:
+        secretName: git-credentials
+    - name: git-basic-auth-directory
+      secret:
+        secretName: git-basic-auth-secret
+  params:
+    - name: repo-url
+      value: https://192.168.208.136:10433/root/cicd-demo-0331.git
+    - name: image-reference
+      value: 192.168.208.136/umr/build_java_app:232345487
+    - name: sync-image-repo-url
+      value: https://192.168.208.136:10433/root/fleet-examples.git
+    - name: GIT_USER_NAME
+      value: chenhq76
+    - name: GIT_USER_EMAIL
+      value: chenhq76@chinaunicom.cn  
+    - name: GIT_SCRIPT
+      value: |
+        rm -rf ./fleet-examples
+        export GIT_SSL_NO_VERIFY=true
+        git config --global http.sslVerify "false"
+        git clone $(params.sync-image-repo-url)
+
+        cat > update-image.sh << EOF
+        #!/bin/sh
+        echo "Update image tag ..."
+        newImage=\$1
+        image=build_java_app:
+
+        for line in \$(cat ./fleet-examples/simple/java-sample.yaml)
+        do
+        case \$line in
+          *\$image*) sed -i "s|\$line|\$newImage|g" ./fleet-examples/simple/java-sample.yaml && echo "updated to \$newImage ...";;
+        esac
+        done
+        EOF
+        cat update-image.sh
+        chmod +x update-image.sh
+        ./update-image.sh  $(params.image-reference)
+        cat ./fleet-examples/simple/java-sample.yaml | grep image
+        cd ./fleet-examples
+        git add .
+        git commit -m "update image to $(params.image-reference)"
+        git push origin main

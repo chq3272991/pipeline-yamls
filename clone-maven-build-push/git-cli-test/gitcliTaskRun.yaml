@@ -1,0 +1,65 @@
+apiVersion: tekton.dev/v1beta1
+kind: TaskRun
+metadata:
+  generateName: git-cli-test-task-run-
+spec:
+  taskRef:
+    name: git-cli
+  workspaces:
+  - name: source
+    volumeClaimTemplate:
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+  - name: input
+    volumeClaimTemplate:
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi          
+  - name: ssh-directory
+    secret:
+      secretName: git-credentials
+  - name: basic-auth
+    secret:
+      secretName: git-basic-auth-secret    
+  params:
+  - name: GIT_USER_NAME
+    value: 陈洪球
+  - name: GIT_USER_EMAIL
+    value: chenhq76@chinaunicom.cn
+  - name: GIT_SCRIPT
+    value: |
+      cd $(workspaces.input.path)
+      export GIT_SSL_NO_VERIFY=true
+      git config --global http.sslVerify "false"
+      git clone https://192.168.208.136:10433/root/fleet-examples.git
+
+      cat > update-image.sh << EOF
+      #!/bin/sh
+      echo "Update image tag ..."
+      newImage=\$1
+      image=build_java_app:
+
+      for line in \$(cat ./fleet-examples/simple/java-sample.yaml)
+      do
+      case \$line in
+        *\$image*) sed -i "s|\$line|\$newImage|g" ./fleet-examples/simple/java-sample.yaml && echo "updated to \$newImage ...";;
+      esac
+      done
+      EOF
+      cat update-image.sh
+      chmod +x update-image.sh
+      ./update-image.sh  192.168.208.136/umr/build_java_app:08d4ecc6fbb94518dc4b6293daa39503dbd64df044
+      cat ./fleet-examples/simple/java-sample.yaml | grep image
+      cd ./fleet-examples
+      git add .
+      git commit -m "update image to 192.168.208.136/umr/build_java_app:08d4ecc6fbb94518dc4b6293daa39503dbd64df044"
+      git push origin main
+      sleep 3600
+

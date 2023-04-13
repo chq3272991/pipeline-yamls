@@ -1,0 +1,89 @@
+apiVersion: tekton.dev/v1beta1
+kind: Pipeline
+metadata:
+  name: maven-test-pipeline
+spec:
+  params:
+    - name: repo-url
+      type: string
+    - name: image-reference
+      type: string
+    - name: GIT_USER_NAME
+      type: string
+    - name: GIT_USER_EMAIL
+      type: string
+    - name: GIT_SCRIPT
+  workspaces:
+    - name: shared-workspace
+    - name: maven-settings
+    - name: docker-credentials
+    - name: ssh-directory
+    - name: git-basic-auth-directory
+  tasks:
+    - name: fetch-repository
+      taskRef:
+        name: git-clone
+        kind: Task
+      workspaces:
+        - name: output
+          workspace: shared-workspace
+        - name: ssh-directory
+          workspace: ssh-directory
+        - name: basic-auth
+          workspace: git-basic-auth-directory
+      params:
+        - name: url
+          value: $(params.repo-url)
+    - name: maven-run
+      taskRef:
+        name: maven
+        kind: Task
+      workspaces:
+        - name: source
+          workspace: shared-workspace  
+        - name: maven-settings
+          workspace: maven-settings
+      runAfter:
+        - fetch-repository
+      params:
+        - name: CONTEXT_DIR
+          value: "."
+        - name: GOALS
+          value:
+            - -DskipTests
+            - clean
+            - package
+    - name: build-push
+      params:
+        - name: IMAGE
+          value: $(params.image-reference)
+      runAfter:
+        - maven-run
+      taskRef:
+        kind: Task
+        name: kaniko
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+        - name: dockerconfig
+          workspace: docker-credentials
+    - name: sync-image
+      runAfter:
+        - build-push
+      taskRef:
+        kind: Task
+        name: git-cli
+      workspaces:
+        - name: source
+          workspace: shared-workspace
+        - name: ssh-directory
+          workspace: ssh-directory
+        - name: basic-auth
+          workspace: git-basic-auth-directory
+      params:
+      - name: GIT_USER_NAME
+        value: $(params.GIT_USER_NAME)
+      - name: GIT_USER_EMAIL
+        value: $(params.GIT_USER_EMAIL)
+      - name: GIT_SCRIPT
+        value: $(params.GIT_SCRIPT)

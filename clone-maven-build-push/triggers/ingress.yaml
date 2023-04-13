@@ -1,0 +1,22 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: maven-trigger-localhost
+  namespace: default
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: el-maven-trigger-listener.me
+    http:
+      paths:
+      - backend:
+          service:
+            name: el-maven-trigger-listener
+            port:
+              number: 8080
+        path: /
+        pathType: Prefix
+status:
+  loadBalancer:
+    ingress:
+    - hostname: localhost

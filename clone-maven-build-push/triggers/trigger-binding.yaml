@@ -1,0 +1,14 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerBinding
+metadata:
+  name: maven-trigger-binding
+spec: 
+  params:
+  - name: repo-url              # java或go项目的git仓库，webhook回调请求可以获取仓库https地址
+    value: $(body.repo-url)     # $(body.repository.git_http_url)
+  - name: commit-id
+    value: $(body.after)
+  # - name: repo-name
+  #   value: $(body.project.name)
+  # - name: project-default-branch
+  #   value: $(body.project.default_branch)
