@@ -1,0 +1,22 @@
+apiVersion: tekton.dev/v1beta1
+kind: TaskRun
+metadata:
+  generateName: go-build-test-task-run-
+spec:
+  taskRef:
+    name: go-build
+  workspaces:
+  - name: source
+    volumeClaimTemplate:
+      spec:
+        accessModes:
+        - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+  params:
+  - name: go-build-script
+    value: |  # go build -v
+      go version
+      go build -v -o my_go_app
+      
