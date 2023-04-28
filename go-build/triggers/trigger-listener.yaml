@@ -1,0 +1,14 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: EventListener
+metadata:
+  name: golang-demo1-trigger-listener
+spec:
+  serviceAccountName: tekton-robot
+  triggers:
+    - name: golang-trigger 
+      bindings:
+      - ref: golang-demo1-trigger-binding
+      template:
+        ref: golang-demo1-pipeline-run-template
+
+# 这声明当检测到事件时，它将运行TriggerBinding和TriggerTemplate。

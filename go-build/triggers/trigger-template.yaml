@@ -1,0 +1,110 @@
+apiVersion: triggers.tekton.dev/v1beta1
+kind: TriggerTemplate
+metadata:
+  name: golang-demo1-pipeline-run-template
+spec:
+  params:
+  # git-clone 项目源码git仓库
+  - name: repo-url
+    default: "https://192.168.208.136:10433/root/cicd-demo-go-0410.git"
+  # build-push推送最新镜像的地址
+  - name: push-image
+    default: "192.168.208.136/umr/my-golang-app:"  
+  - name: commit-id
+    default: "test"
+  # k8s yaml交付的git仓库
+  - name: sync-image-repo-url
+    default: "https://192.168.208.136:10433/root/fleet-examples.git"
+  - name: go-build-script
+    default: |
+      go build -v -o my_go_app
+  # repo-name ，一般固定
+  - name: repo-name
+    default: "fleet-examples"
+  # 需要推送的分支，一般固定
+  - name: project-default-branch
+    default: "main"
+  # 需要更新镜像的yaml文件
+  - name: target-file
+    default: "./fleet-examples/simple/golang-sample.yaml"
+  resourcetemplates:
+  - apiVersion: tekton.dev/v1beta1
+    kind: PipelineRun
+    metadata:
+      generateName: golang-demo1-pipeline-run-
+    spec:
+      params:
+        - name: repo-url
+          value: $(tt.params.repo-url)
+        - name: image-reference
+          value: $(tt.params.push-image)$(tt.params.commit-id)
+        - name: GIT_USER_NAME
+          value: chenhq76
+        - name: GIT_USER_EMAIL
+          value: chenhq76@chinaunicom.cn
+        - name: go-build-script
+          value: $(tt.params.go-build-script)
+        - name: GIT_SCRIPT
+          value: |
+            export SYNC_IMAGE_REPO_URL=$(tt.params.sync-image-repo-url)
+            export REPO_DIR=$(tt.params.repo-name)
+            export PUSH_IMAGE=$(tt.params.push-image)
+            export TARGET_FILE=$(tt.params.target-file)
+            export SYNC_IMAGE=$(tt.params.push-image)$(tt.params.commit-id)
+            export DEFAULT_BRANCH=$(tt.params.project-default-branch)
+
+            rm -rf ./$REPO_DIR
+            export GIT_SSL_NO_VERIFY=true
+            git config --global http.sslVerify "false"
+            git clone $SYNC_IMAGE_REPO_URL
+
+            cat > update-image.sh << EOF
+            #!/bin/sh
+            echo "Update image tag ..."
+            newImage=\$1
+            image=\$PUSH_IMAGE
+
+            for line in \$(cat \$TARGET_FILE)
+            do
+            case \$line in
+              *\$image*) sed -i "s|\$line|\$newImage|g" \$TARGET_FILE && echo "updated to \$newImage ...";;
+            esac
+            done
+            EOF
+            cat update-image.sh
+            chmod +x update-image.sh
+            ./update-image.sh  $SYNC_IMAGE
+            cat $TARGET_FILE | grep image
+            cd $REPO_DIR
+            git add .
+            git commit -m "updated image to $SYNC_IMAGE"
+            git push origin $DEFAULT_BRANCH
+            
+      pipelineRef:
+        name: go-test-pipeline
+      podTemplate:
+        securityContext:
+          fsGroup: 65532
+      workspaces:
+        - name: shared-workspace
+          volumeClaimTemplate:
+            metadata:
+              creationTimestamp: null
+            spec:
+              accessModes:
+                - ReadWriteOnce
+              resources:
+                requests:
+                  storage: 1Gi
+            status: {}
+        - name: docker-credentials
+          secret:
+            secretName: docker-credentials
+        - name: maven-settings
+          emptyDir: {}
+        - name: ssh-directory
+          secret:
+            secretName: git-credentials
+        - name: git-basic-auth-directory
+          secret:
+            secretName: git-basic-auth-secret
