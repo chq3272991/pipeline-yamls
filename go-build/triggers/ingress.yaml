@@ -6,7 +6,7 @@ metadata:
 spec:
   ingressClassName: nginx
   rules:
-  - host: chq-trigger-listener.me
+  - host: el-maven-trigger-listener.me
     http:
       paths:
       - backend:

@@ -14,7 +14,7 @@ spec:
             name: el-maven-trigger-listener
             port:
               number: 8080
-        path: /
+        path: /java-demo1
         pathType: Prefix
 status:
   loadBalancer:
